@@ -1,15 +1,15 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-// const minimist = require('minimist');
-// const rimraf = require('rimraf');
+const minimist = require('minimist');
+const rimraf = require('rimraf');
 
-// const argv = minimist(process.argv.slice(2));
+const argv = minimist(process.argv.slice(2));
 
 // Pass `--test-app-directory=my-dir` to change the testing application directory.
 // const TEST_APP_DIR = argv['test-app-directory'] || 'builders-test-app';
 const TEST_LIB_DIR = argv['test-lib-directory'] || 'builders-test-lib';
-const TEST_DIST = '.buildersdist';
+const TEST_DIST = '.schematicsdist';
 
 function cleanDist() {
   // rimraf.sync(path.join(TEST_APP_DIR, TEST_DIST));
@@ -74,6 +74,19 @@ function mergeBuilderSchemas() {
   });
 }
 
+function copyDistToNodeModules() {
+  const distPath = path.join(process.cwd(), 'dist');
+  [`../${TEST_LIB_DIR}/node_modules/@skyux-sdk/typedoc-schematics`].forEach(
+    (destination) => {
+      fs.copySync(distPath, path.join(__dirname, destination));
+      console.log(
+        `Successfully copied 'dist' to '${destination}/node_modules'.`
+      );
+    }
+  );
+}
+
 cleanDist();
 copyFilesToDist();
 mergeBuilderSchemas();
+copyDistToNodeModules();
