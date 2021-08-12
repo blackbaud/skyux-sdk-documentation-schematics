@@ -1,4 +1,4 @@
-import { normalize, resolve, Path } from '@angular-devkit/core';
+import { normalize, resolve, Path, basename } from '@angular-devkit/core';
 import { ProjectDefinition } from '@angular-devkit/core/src/workspace';
 import { chain, Rule, Tree } from '@angular-devkit/schematics';
 
@@ -9,6 +9,22 @@ import { readRequiredFile } from '../../utility/tree';
 import { getProject, getWorkspace } from '../../utility/workspace';
 
 import { Schema } from './schema';
+
+interface AnchorIds {
+  [typeName: string]: string;
+}
+
+interface CodeExample {
+  fileName: string;
+  filePath: string;
+  rawContents: string;
+}
+
+interface DocumentationJson {
+  anchorIds?: AnchorIds;
+  typedoc?: JSONOutput.ProjectReflection;
+  codeExamples?: CodeExample[];
+}
 
 function parseFriendlyUrlFragment(value: string): string | undefined {
   if (!value) {
@@ -33,10 +49,9 @@ function parseFriendlyUrlFragment(value: string): string | undefined {
 /**
  * Returns anchor IDs to be used for same-page linking.
  */
-function getAnchorIds(json: JSONOutput.ProjectReflection): {
-  [_: string]: string;
-} {
-  const anchorIdMap: { [_: string]: string } = {};
+function getAnchorIds(json: JSONOutput.ProjectReflection): AnchorIds {
+  const anchorIdMap: AnchorIds = {};
+
   json.children
     ?.filter((child) => {
       const kindString = child.kindString?.toLowerCase();
@@ -52,11 +67,11 @@ function getAnchorIds(json: JSONOutput.ProjectReflection): {
   return anchorIdMap;
 }
 
-function runTypeDoc(
-  documentationJsonPath: string,
+function applyTypeDocDefinitions(
+  documentationJson: DocumentationJson,
   project: ProjectDefinition
 ): Rule {
-  return async (tree) => {
+  return async () => {
     const files: string[] = [normalize(`${project.sourceRoot}/public-api.ts`)];
 
     const app = new TypeDocApplication();
@@ -91,17 +106,8 @@ function runTypeDoc(
       const projectReflection = app.serializer.toObject(typedocProject);
       const anchorIds = getAnchorIds(projectReflection);
 
-      const documentationJson = JSON.parse(
-        readRequiredFile(tree, documentationJsonPath)
-      );
-
       documentationJson.anchorIds = anchorIds;
       documentationJson.typedoc = projectReflection;
-
-      tree.overwrite(
-        documentationJsonPath,
-        JSON.stringify(documentationJson, undefined, 2)
-      );
     } else {
       console.log('Documentation generation failed.');
     }
@@ -112,22 +118,66 @@ function getDocumentationJsonPath(
   tree: Tree,
   project: ProjectDefinition
 ): string {
-  return `${getOutputPath(tree, project)}/documentation.json`;
-}
-
-function getOutputPath(tree: Tree, project: ProjectDefinition): string {
   const ngPackageJson = JSON.parse(
     readRequiredFile(tree, `${project.root}/ng-package.json`)
   );
 
-  return resolve(`${project.root}` as Path, ngPackageJson.dest);
+  const outputPath = resolve(`${project.root}` as Path, ngPackageJson.dest);
+
+  return `${outputPath}/documentation.json`;
 }
 
-function ensureDocumentationJson(documentationJsonPath: string): Rule {
+function ensureDocumentationJson(tree: Tree, documentationJsonPath: string) {
+  if (!tree.exists(documentationJsonPath)) {
+    tree.create(documentationJsonPath, '{}');
+  }
+}
+
+function applyCodeExamples(
+  documentationJson: DocumentationJson,
+  project: ProjectDefinition
+): Rule {
   return (tree) => {
-    if (!tree.exists(documentationJsonPath)) {
-      tree.create(documentationJsonPath, '{}');
-    }
+    const codeExamples: CodeExample[] = [];
+
+    tree
+      .getDir(`${project.root}/documentation/code-examples`)
+      .visit((filePath) => {
+        console.log('Code example found:', filePath);
+        codeExamples.push({
+          fileName: basename(filePath),
+          filePath,
+          rawContents: readRequiredFile(tree, filePath)
+        });
+      });
+
+    documentationJson.codeExamples = codeExamples;
+  };
+}
+
+function getDocumentationJson(
+  tree: Tree,
+  project: ProjectDefinition
+): DocumentationJson {
+  const documentationJsonPath = getDocumentationJsonPath(tree, project);
+
+  ensureDocumentationJson(tree, documentationJsonPath);
+
+  return JSON.parse(
+    readRequiredFile(tree, documentationJsonPath)
+  ) as DocumentationJson;
+}
+
+function updateDocumentationJson(
+  documentationJson: DocumentationJson,
+  project: ProjectDefinition
+): Rule {
+  return (tree) => {
+    const documentationJsonPath = getDocumentationJsonPath(tree, project);
+    tree.overwrite(
+      documentationJsonPath,
+      JSON.stringify(documentationJson, undefined, 2)
+    );
   };
 }
 
@@ -144,13 +194,12 @@ export default function generateDocumentation(options: Schema): Rule {
       throw new Error('Only library projects can generate documentation.');
     }
 
-    getOutputPath(tree, project);
-
-    const documentationJsonPath = getDocumentationJsonPath(tree, project);
+    const documentationJson = getDocumentationJson(tree, project);
 
     return chain([
-      ensureDocumentationJson(documentationJsonPath),
-      runTypeDoc(documentationJsonPath, project)
+      applyTypeDocDefinitions(documentationJson, project),
+      applyCodeExamples(documentationJson, project),
+      updateDocumentationJson(documentationJson, project)
     ]);
   };
 }
