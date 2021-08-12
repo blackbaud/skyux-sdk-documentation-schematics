@@ -51,7 +51,7 @@ function getAnchorIds(
   return anchorIdMap;
 }
 
-function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
+function runTypeDoc(project: ProjectDefinition): Rule {
   return async (tree) => {
     const files: string[] = [normalize(`${project.sourceRoot}/public-api.ts`)];
 
@@ -84,7 +84,7 @@ function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const documentationJsonPath = `dist/${projectName}/documentation.json`;
+      const documentationJsonPath = getDocumentationJsonPath(project);
       const projectReflection = app.serializer.toObject(typedocProject);
       const anchorIds = getAnchorIds(projectReflection);
 
@@ -97,13 +97,22 @@ function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
         2
       );
 
-      if (tree.exists(documentationJsonPath)) {
-        tree.overwrite(documentationJsonPath, contents);
-      } else {
-        tree.create(documentationJsonPath, contents);
-      }
+      tree.overwrite(documentationJsonPath, contents);
     } else {
       console.log('Documentation generation failed.');
+    }
+  };
+}
+
+function getDocumentationJsonPath(project: ProjectDefinition): string {
+  return `${project.root}/documentation/documentation.json`;
+}
+
+function ensureDocumentationJson(project: ProjectDefinition): Rule {
+  return (tree) => {
+    const documentationJsonPath = getDocumentationJsonPath(project);
+    if (!tree.exists(documentationJsonPath)) {
+      tree.create(documentationJsonPath, '{}');
     }
   };
 }
@@ -112,7 +121,7 @@ export default function generateDocumentation(options: Schema): Rule {
   return async (tree) => {
     const { workspace } = await getWorkspace(tree);
 
-    const { project, projectName } = await getProject(
+    const { project } = await getProject(
       workspace,
       options.project || (workspace.extensions.defaultProject as string)
     );
@@ -121,6 +130,6 @@ export default function generateDocumentation(options: Schema): Rule {
       throw new Error('Only library projects can generate documentation.');
     }
 
-    return chain([runTypeDoc(project, projectName)]);
+    return chain([ensureDocumentationJson(project), runTypeDoc(project)]);
   };
 }
