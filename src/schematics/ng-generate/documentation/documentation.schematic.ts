@@ -2,30 +2,81 @@ import { normalize } from '@angular-devkit/core';
 import { ProjectDefinition } from '@angular-devkit/core/src/workspace';
 import { chain, Rule } from '@angular-devkit/schematics';
 
-import * as TypeDoc from 'typedoc';
+import { Application as TypeDocApplication, JSONOutput } from 'typedoc';
 import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
 
 import { getProject, getWorkspace } from '../../utility/workspace';
 
 import { Schema } from './schema';
 
-function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
-  return async () => {
-    const files = [normalize(`${project.sourceRoot}/public-api.ts`)];
+function parseFriendlyUrlFragment(value: string): string | undefined {
+  if (!value) {
+    return;
+  }
 
-    const app = new TypeDoc.Application();
+  const friendly = value
+    .toLowerCase()
+
+    // Remove special characters.
+    .replace(/[_~`@!#$%^&*()[\]{};:'/\\<>,.?=+|"]/g, '')
+
+    // Replace space characters with a dash.
+    .replace(/\s/g, '-')
+
+    // Remove any double-dashes.
+    .replace(/--/g, '-');
+
+  return friendly;
+}
+
+/**
+ * Returns anchor IDs to be used for same-page linking.
+ */
+function getAnchorIds(
+  json: JSONOutput.ProjectReflection
+): { [_: string]: string } {
+  const anchorIdMap: { [_: string]: string } = {};
+  json.children
+    ?.filter((child) => {
+      const kindString = child.kindString?.toLowerCase();
+      return kindString && kindString !== 'variable';
+    })
+    .forEach((child) => {
+      const kindString = parseFriendlyUrlFragment(child.kindString!);
+      const friendlyName = parseFriendlyUrlFragment(child.name);
+      const anchorId = `${kindString}-${friendlyName}`;
+      anchorIdMap[child.name] = anchorId;
+    });
+
+  return anchorIdMap;
+}
+
+function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
+  return async (tree) => {
+    const files: string[] = [normalize(`${project.sourceRoot}/public-api.ts`)];
+
+    const app = new TypeDocApplication();
 
     app.bootstrap({
-      entryPoints: files
+      entryPoints: files,
+      excludeExternals: true,
+      excludeInternal: true,
+      excludeNotDocumented: true,
+      excludePrivate: true,
+      excludeProtected: true,
+      logLevel: 'Verbose'
     });
 
     app.options.setCompilerOptions(
       files,
       {
+        esModuleInterop: true,
         experimentalDecorators: true,
         module: ModuleKind.ES2020,
         moduleResolution: ModuleResolutionKind.NodeJs,
-        target: ScriptTarget.ES2017
+        resolveJsonModule: true,
+        target: ScriptTarget.ES2017,
+        baseUrl: './'
       },
       undefined
     );
@@ -33,8 +84,26 @@ function runTypeDoc(project: ProjectDefinition, projectName: string): Rule {
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const outputDir = `${process.cwd()}/dist/${projectName}`;
-      await app.generateJson(typedocProject, outputDir + '/documentation.json');
+      const documentationJsonPath = `dist/${projectName}/documentation.json`;
+      const projectReflection = app.serializer.toObject(typedocProject);
+      const anchorIds = getAnchorIds(projectReflection);
+
+      const contents = JSON.stringify(
+        {
+          anchorIds,
+          typedoc: projectReflection
+        },
+        undefined,
+        2
+      );
+
+      if (tree.exists(documentationJsonPath)) {
+        tree.overwrite(documentationJsonPath, contents);
+      } else {
+        tree.create(documentationJsonPath, contents);
+      }
+    } else {
+      console.log('Documentation generation failed.');
     }
   };
 }
@@ -52,8 +121,6 @@ export default function generateDocumentation(options: Schema): Rule {
       throw new Error('Only library projects can generate documentation.');
     }
 
-    // Run TypeDoc.
-    // Create raw text versions of StackBlitz code examples.
     return chain([runTypeDoc(project, projectName)]);
   };
 }

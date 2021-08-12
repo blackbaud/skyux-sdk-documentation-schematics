@@ -5,12 +5,12 @@ import {
 
 import path from 'path';
 
-import { createTestApp } from '../testing/scaffold';
+import { createTestLibrary } from '../testing/scaffold';
 
 const COLLECTION_PATH = path.resolve(__dirname, '../../../collection.json');
 
 describe('ng-add.schematic', () => {
-  const defaultProjectName = 'my-app';
+  const defaultProjectName = 'my-lib';
 
   let runner: SchematicTestRunner;
   let tree: UnitTestTree;
@@ -18,8 +18,8 @@ describe('ng-add.schematic', () => {
   beforeEach(async () => {
     runner = new SchematicTestRunner('schematics', COLLECTION_PATH);
 
-    tree = await createTestApp(runner, {
-      defaultProjectName
+    tree = await createTestLibrary(runner, {
+      name: defaultProjectName
     });
   });
 
