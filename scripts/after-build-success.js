@@ -22,7 +22,7 @@ function copyFilesToDist() {
     ['CHANGELOG.md'],
     ['package.json'],
     // ['builders.json'],
-    ['collection.json']
+    ['collection.json'],
     // ['src/builders/protractor/schema.ext.json'],
     // ['src/schematics/ng-generate/setup-protractor/files'],
     // ['src/schematics/ng-generate/setup-protractor/schema.json'],
@@ -67,7 +67,7 @@ function mergeBuilderSchemas() {
 
     fs.writeJsonSync(config.schemaPath, newJson, {
       encoding: 'utf8',
-      spaces: 2
+      spaces: 2,
     });
 
     console.log(`Successfully merged ${config.schemaPath}`);
@@ -77,7 +77,7 @@ function mergeBuilderSchemas() {
 function copyDistToNodeModules() {
   const distPath = path.join(process.cwd(), 'dist');
   [
-    `../${TEST_LIB_DIR}/node_modules/@skyux-sdk/documentation-schematics`
+    `../${TEST_LIB_DIR}/node_modules/@skyux-sdk/documentation-schematics`,
   ].forEach((destination) => {
     fs.copySync(distPath, path.join(__dirname, destination));
     console.log(`Successfully copied 'dist' to '${destination}/node_modules'.`);

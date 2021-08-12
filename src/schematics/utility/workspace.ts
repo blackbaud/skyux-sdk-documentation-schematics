@@ -22,7 +22,7 @@ function createHost(tree: Tree): workspaces.WorkspaceHost {
     },
     async isFile(path: string): Promise<boolean> {
       return tree.exists(path);
-    }
+    },
   };
 }
 

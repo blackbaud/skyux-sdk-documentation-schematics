@@ -1,6 +1,6 @@
 import {
   SchematicTestRunner,
-  UnitTestTree
+  UnitTestTree,
 } from '@angular-devkit/schematics/testing';
 
 /**
@@ -20,7 +20,7 @@ export async function createTestApp(
       routing: true,
       strict: true,
       style: 'scss',
-      version: '12'
+      version: '12',
     })
     .toPromise();
 }
@@ -40,7 +40,7 @@ export async function createTestLibrary(
       name: `${libOptions.name}-workspace`,
       createApplication: false,
       strict: true,
-      version: '12'
+      version: '12',
     })
     .toPromise();
 
@@ -49,7 +49,7 @@ export async function createTestLibrary(
       '@schematics/angular',
       'library',
       {
-        name: libOptions.name
+        name: libOptions.name,
       },
       workspaceTree
     )

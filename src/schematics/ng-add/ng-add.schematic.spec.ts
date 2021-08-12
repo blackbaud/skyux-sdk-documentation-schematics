@@ -1,6 +1,6 @@
 import {
   SchematicTestRunner,
-  UnitTestTree
+  UnitTestTree,
 } from '@angular-devkit/schematics/testing';
 
 import path from 'path';
@@ -19,7 +19,7 @@ describe('ng-add.schematic', () => {
     runner = new SchematicTestRunner('schematics', COLLECTION_PATH);
 
     tree = await createTestLibrary(runner, {
-      name: defaultProjectName
+      name: defaultProjectName,
     });
   });
 
@@ -32,7 +32,7 @@ describe('ng-add.schematic', () => {
 
   it('should run the NodePackageInstallTask', async () => {
     await runSchematic(tree, {
-      project: defaultProjectName
+      project: defaultProjectName,
     });
 
     expect(runner.tasks.some((task) => task.name === 'node-package')).toEqual(

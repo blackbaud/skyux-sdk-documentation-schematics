@@ -80,10 +80,9 @@ function applyTypeDocDefinitions(
       entryPoints: files,
       excludeExternals: true,
       excludeInternal: true,
-      excludeNotDocumented: true,
       excludePrivate: true,
       excludeProtected: true,
-      logLevel: 'Verbose'
+      logLevel: 'Verbose',
     });
 
     app.options.setCompilerOptions(
@@ -95,7 +94,7 @@ function applyTypeDocDefinitions(
         moduleResolution: ModuleResolutionKind.NodeJs,
         resolveJsonModule: true,
         target: ScriptTarget.ES2017,
-        baseUrl: './'
+        baseUrl: './',
       },
       undefined
     );
@@ -147,7 +146,7 @@ function applyCodeExamples(
         codeExamples.push({
           fileName: basename(filePath),
           filePath,
-          rawContents: readRequiredFile(tree, filePath)
+          rawContents: readRequiredFile(tree, filePath),
         });
       });
 
@@ -199,7 +198,7 @@ export default function generateDocumentation(options: Schema): Rule {
     return chain([
       applyTypeDocDefinitions(documentationJson, project),
       applyCodeExamples(documentationJson, project),
-      updateDocumentationJson(documentationJson, project)
+      updateDocumentationJson(documentationJson, project),
     ]);
   };
 }

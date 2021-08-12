@@ -1,6 +1,6 @@
 import {
   SchematicTestRunner,
-  UnitTestTree
+  UnitTestTree,
 } from '@angular-devkit/schematics/testing';
 
 import mock from 'mock-require';
@@ -21,7 +21,7 @@ describe('Setup protractor schematic', () => {
 
   beforeEach(async () => {
     tree = await createTestLibrary(runner, {
-      name: defaultProjectName
+      name: defaultProjectName,
     });
 
     mockTypeDocProject = {};
@@ -34,18 +34,18 @@ describe('Setup protractor schematic', () => {
             return {};
           },
           options: {
-            setCompilerOptions() {}
+            setCompilerOptions() {},
           },
           serializer: {
             toObject() {
               return mockTypeDocProject;
-            }
-          }
+            },
+          },
         };
       },
       JSONOutput: {
-        ProjectReflection: {}
-      }
+        ProjectReflection: {},
+      },
     });
   });
 
@@ -58,7 +58,7 @@ describe('Setup protractor schematic', () => {
       .runSchematicAsync(
         schematicName,
         {
-          project: defaultProjectName
+          project: defaultProjectName,
         },
         tree
       )
