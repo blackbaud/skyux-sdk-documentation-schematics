@@ -2,14 +2,14 @@
   "$schema": "./node_modules/@angular-devkit/schematics/collection-schema.json",
   "schematics": {
     "ng-add": {
-      "description": "Add @skyux-sdk/typedoc-schematics to your project.",
+      "description": "Add @skyux-sdk/documentation-schematics to your project.",
       "factory": "./src/schematics/ng-add/ng-add.schematic",
       "schema": "./src/schematics/ng-add/schema.json"
     },
     "documentation": {
-      "description": "",
+      "description": "Generate documentation files for your library.",
       "factory": "./src/schematics/ng-generate/documentation/documentation.schematic",
-      "schema": "./src/schematics/ng-generate/documentation/schema"
+      "schema": "./src/schematics/ng-generate/documentation/schema.json"
     }
   }
 }

@@ -1,1 +1,1 @@
-# @skyux-sdk/typedoc-schematics
+# @skyux-sdk/documentation-schematics
