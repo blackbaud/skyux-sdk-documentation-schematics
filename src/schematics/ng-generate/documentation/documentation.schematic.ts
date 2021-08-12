@@ -1,10 +1,11 @@
-import { normalize } from '@angular-devkit/core';
+import { normalize, resolve, Path } from '@angular-devkit/core';
 import { ProjectDefinition } from '@angular-devkit/core/src/workspace';
-import { chain, Rule } from '@angular-devkit/schematics';
+import { chain, Rule, Tree } from '@angular-devkit/schematics';
 
 import { Application as TypeDocApplication, JSONOutput } from 'typedoc';
 import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
 
+import { readRequiredFile } from '../../utility/tree';
 import { getProject, getWorkspace } from '../../utility/workspace';
 
 import { Schema } from './schema';
@@ -32,9 +33,9 @@ function parseFriendlyUrlFragment(value: string): string | undefined {
 /**
  * Returns anchor IDs to be used for same-page linking.
  */
-function getAnchorIds(
-  json: JSONOutput.ProjectReflection
-): { [_: string]: string } {
+function getAnchorIds(json: JSONOutput.ProjectReflection): {
+  [_: string]: string;
+} {
   const anchorIdMap: { [_: string]: string } = {};
   json.children
     ?.filter((child) => {
@@ -51,7 +52,10 @@ function getAnchorIds(
   return anchorIdMap;
 }
 
-function runTypeDoc(project: ProjectDefinition): Rule {
+function runTypeDoc(
+  documentationJsonPath: string,
+  project: ProjectDefinition
+): Rule {
   return async (tree) => {
     const files: string[] = [normalize(`${project.sourceRoot}/public-api.ts`)];
 
@@ -84,33 +88,43 @@ function runTypeDoc(project: ProjectDefinition): Rule {
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const documentationJsonPath = getDocumentationJsonPath(project);
       const projectReflection = app.serializer.toObject(typedocProject);
       const anchorIds = getAnchorIds(projectReflection);
 
-      const contents = JSON.stringify(
-        {
-          anchorIds,
-          typedoc: projectReflection
-        },
-        undefined,
-        2
+      const documentationJson = JSON.parse(
+        readRequiredFile(tree, documentationJsonPath)
       );
 
-      tree.overwrite(documentationJsonPath, contents);
+      documentationJson.anchorIds = anchorIds;
+      documentationJson.typedoc = projectReflection;
+
+      tree.overwrite(
+        documentationJsonPath,
+        JSON.stringify(documentationJson, undefined, 2)
+      );
     } else {
       console.log('Documentation generation failed.');
     }
   };
 }
 
-function getDocumentationJsonPath(project: ProjectDefinition): string {
-  return `${project.root}/documentation/documentation.json`;
+function getDocumentationJsonPath(
+  tree: Tree,
+  project: ProjectDefinition
+): string {
+  return `${getOutputPath(tree, project)}/documentation.json`;
 }
 
-function ensureDocumentationJson(project: ProjectDefinition): Rule {
+function getOutputPath(tree: Tree, project: ProjectDefinition): string {
+  const ngPackageJson = JSON.parse(
+    readRequiredFile(tree, `${project.root}/ng-package.json`)
+  );
+
+  return resolve(`${project.root}` as Path, ngPackageJson.dest);
+}
+
+function ensureDocumentationJson(documentationJsonPath: string): Rule {
   return (tree) => {
-    const documentationJsonPath = getDocumentationJsonPath(project);
     if (!tree.exists(documentationJsonPath)) {
       tree.create(documentationJsonPath, '{}');
     }
@@ -130,6 +144,13 @@ export default function generateDocumentation(options: Schema): Rule {
       throw new Error('Only library projects can generate documentation.');
     }
 
-    return chain([ensureDocumentationJson(project), runTypeDoc(project)]);
+    getOutputPath(tree, project);
+
+    const documentationJsonPath = getDocumentationJsonPath(tree, project);
+
+    return chain([
+      ensureDocumentationJson(documentationJsonPath),
+      runTypeDoc(documentationJsonPath, project)
+    ]);
   };
 }
