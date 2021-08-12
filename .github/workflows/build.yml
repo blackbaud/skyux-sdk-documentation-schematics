@@ -26,7 +26,7 @@ jobs:
         run: |
           npm test
           bash <(curl -s https://codecov.io/bash)
-  e2e-app:
+  e2e-lib:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -39,30 +39,25 @@ jobs:
         run: |
           npm i -g @angular/cli@12 @skyux-sdk/cli
           npm ci
-      - name: Install SKY UX certificate
+      - name: Create new Angular CLI workspace
         run: |
-          skyux certs install
-      - name: Create new Angular CLI application
+          ng new builders-e2e-workspace --create-application=false
+      - name: Create library
         run: |
-          ng new builders-e2e-app --legacy-browsers --routing --strict --style=scss
-      - name: Build `@skyux-sdk/angular-builders-compat`
+          ng generate library my-lib
+        working-directory: builders-e2e-workspace
+      - name: Build `@skyux-sdk/documentation-schematics`
         run: |
           node_modules/.bin/tsc -p tsconfig.build.json
-          node ./scripts/after-build-success.js --test-app-directory builders-e2e-app
-      - name: Add `@skyux-sdk/angular-builders-compat`
-        working-directory: builders-e2e-app
+          node ./scripts/after-build-success.js --test-lib-directory builders-e2e-workspace
+      - name: Add `@skyux-sdk/documentation-schematics`
+        working-directory: builders-e2e-workspace
         run: |
-          ng add ./.skyux-sdk-angular-builders-dist --skip-confirmation
-          rm -r node_modules/@skyux-sdk/angular-builders-compat
-          mv ../dist node_modules/@skyux-sdk/angular-builders-compat
+          ng add ./.schematicsdist --skip-confirmation
+          rm -r node_modules/@skyux-sdk/documentation-schematics
+          mv ../dist node_modules/@skyux-sdk/documentation-schematics
       - name: Run generate schematics
-        working-directory: builders-e2e-app
+        working-directory: builders-e2e-workspace
         run: |
-          ng generate @skyux-sdk/angular-builders-compat:setup-tslint
-          ng generate @skyux-sdk/angular-builders-compat:setup-protractor
-      - name: Run Angular CLI commands
-        working-directory: builders-e2e-app
-        run: |
-          ng version
-          ng lint --fix
-          ng e2e
+          ng build my-lib
+          ng generate @skyux-sdk/documentation-schematics:documentation
