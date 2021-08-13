@@ -1,6 +1,11 @@
 import { normalize, resolve, Path, basename } from '@angular-devkit/core';
 import { ProjectDefinition } from '@angular-devkit/core/src/workspace';
-import { chain, Rule, Tree } from '@angular-devkit/schematics';
+import {
+  chain,
+  Rule,
+  SchematicsException,
+  Tree,
+} from '@angular-devkit/schematics';
 
 import { Application as TypeDocApplication, JSONOutput } from 'typedoc';
 import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
@@ -26,11 +31,7 @@ interface DocumentationJson {
   codeExamples?: CodeExample[];
 }
 
-function parseFriendlyUrlFragment(value: string): string | undefined {
-  if (!value) {
-    return;
-  }
-
+function parseFriendlyUrlFragment(value: string): string {
   const friendly = value
     .toLowerCase()
 
@@ -54,8 +55,8 @@ function getAnchorIds(json: JSONOutput.ProjectReflection): AnchorIds {
 
   json.children
     ?.filter((child) => {
-      const kindString = child.kindString?.toLowerCase();
-      return kindString && kindString !== 'variable';
+      const kindString = child.kindString?.toLocaleUpperCase();
+      return kindString && kindString !== 'VARIABLE';
     })
     .forEach((child) => {
       const kindString = parseFriendlyUrlFragment(child.kindString!);
@@ -102,13 +103,17 @@ function applyTypeDocDefinitions(
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const projectReflection = app.serializer.toObject(typedocProject);
-      const anchorIds = getAnchorIds(projectReflection);
+      const json = app.serializer.toObject(typedocProject);
+      const anchorIds = getAnchorIds(json);
 
       documentationJson.anchorIds = anchorIds;
-      documentationJson.typedoc = projectReflection;
+      documentationJson.typedoc = json;
     } else {
-      console.log('Documentation generation failed.');
+      throw new SchematicsException(
+        'TypeDoc project generation failed. ' +
+          'This usually occurs when the target TypeScript project cannot compile or is invalid. ' +
+          'Try running `ng build` to debug any compiler issues.'
+      );
     }
   };
 }
@@ -127,6 +132,7 @@ function getDocumentationJsonPath(
 }
 
 function ensureDocumentationJson(tree: Tree, documentationJsonPath: string) {
+  /* istanbul ignore else */
   if (!tree.exists(documentationJsonPath)) {
     tree.create(documentationJsonPath, '{}');
   }
@@ -136,13 +142,13 @@ function applyCodeExamples(
   documentationJson: DocumentationJson,
   project: ProjectDefinition
 ): Rule {
-  return (tree) => {
+  return (tree, context) => {
     const codeExamples: CodeExample[] = [];
 
     tree
       .getDir(`${project.root}/documentation/code-examples`)
       .visit((filePath) => {
-        console.log('Code example found:', filePath);
+        context.logger.info(`Processing code example: ${filePath}`);
         codeExamples.push({
           fileName: basename(filePath),
           filePath,
@@ -181,16 +187,22 @@ function updateDocumentationJson(
 }
 
 export default function generateDocumentation(options: Schema): Rule {
-  return async (tree) => {
+  return async (tree, context) => {
     const { workspace } = await getWorkspace(tree);
 
-    const { project } = await getProject(
+    const { project, projectName } = await getProject(
       workspace,
       options.project || (workspace.extensions.defaultProject as string)
     );
 
+    context.logger.info(
+      `Attempting to generate documentation for project "${projectName}"...`
+    );
+
     if (project.extensions.projectType !== 'library') {
-      throw new Error('Only library projects can generate documentation.');
+      throw new SchematicsException(
+        'Only library projects can generate documentation.'
+      );
     }
 
     const documentationJson = getDocumentationJson(tree, project);

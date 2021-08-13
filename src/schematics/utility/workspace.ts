@@ -1,5 +1,5 @@
 import { workspaces } from '@angular-devkit/core';
-import { Rule, SchematicsException, Tree } from '@angular-devkit/schematics';
+import { SchematicsException, Tree } from '@angular-devkit/schematics';
 
 import { readRequiredFile } from './tree';
 
@@ -13,13 +13,16 @@ function createHost(tree: Tree): workspaces.WorkspaceHost {
     async readFile(path: string): Promise<string> {
       return readRequiredFile(tree, path);
     },
+    /* istanbul ignore next */
     async writeFile(path: string, data: string): Promise<void> {
       return tree.overwrite(path, data);
     },
+    /* istanbul ignore next */
     async isDirectory(path: string): Promise<boolean> {
       // approximate a directory check
       return !tree.exists(path) && tree.getDir(path).subfiles.length > 0;
     },
+    /* istanbul ignore next */
     async isFile(path: string): Promise<boolean> {
       return tree.exists(path);
     },
@@ -51,21 +54,4 @@ export async function getProject(
   }
 
   return { project, projectName };
-}
-
-/**
- * Allows updates to the Angular project config (angular.json).
- */
-export function updateWorkspace(
-  updater: (workspace: workspaces.WorkspaceDefinition) => void
-): Rule {
-  return async (tree) => {
-    const { host, workspace } = await getWorkspace(tree);
-
-    // Send the workspace to the callback to allow it to be modified.
-    await updater(workspace);
-
-    // Update the workspace config with any changes.
-    await workspaces.writeWorkspace(workspace, host);
-  };
 }
