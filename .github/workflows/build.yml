@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14.x'
+      - name: Install dependencies
+        run: |
+          npm ci
+      - name: Verify code is formatted correctly
+        run: |
+          npx prettier --check .
+      - name: Run code coverage
+        run: |
+          npm test
+          bash <(curl -s https://codecov.io/bash)
+  e2e-lib:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14.x'
+      - name: Install dependencies
+        run: |
+          npm i -g @angular/cli@12 @skyux-sdk/cli
+          npm ci
+      - name: Create new Angular CLI workspace
+        run: |
+          ng new builders-e2e-workspace --create-application=false
+      - name: Create library
+        run: |
+          ng generate library my-lib
+        working-directory: builders-e2e-workspace
+      - name: Build `@skyux-sdk/documentation-schematics`
+        run: |
+          node_modules/.bin/tsc -p tsconfig.build.json
+          node ./scripts/after-build-success.js --test-lib-directory builders-e2e-workspace
+      - name: Add `@skyux-sdk/documentation-schematics`
+        working-directory: builders-e2e-workspace
+        run: |
+          ng add ./.schematicsdist --skip-confirmation
+          rm -r node_modules/@skyux-sdk/documentation-schematics
+          mv ../dist node_modules/@skyux-sdk/documentation-schematics
+      - name: Run generate schematics
+        working-directory: builders-e2e-workspace
+        run: |
+          ng build my-lib
+          ng generate @skyux-sdk/documentation-schematics:documentation

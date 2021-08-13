@@ -23,11 +23,11 @@ describe('ng-add.schematic', () => {
     });
   });
 
-  async function runSchematic(
+  function runSchematic(
     tree: UnitTestTree,
     options?: { project?: string }
-  ): Promise<void> {
-    await runner.runSchematicAsync('ng-add', options, tree).toPromise();
+  ): Promise<UnitTestTree> {
+    return runner.runSchematicAsync('ng-add', options, tree).toPromise();
   }
 
   it('should run the NodePackageInstallTask', async () => {
@@ -38,6 +38,35 @@ describe('ng-add.schematic', () => {
     expect(runner.tasks.some((task) => task.name === 'node-package')).toEqual(
       true,
       'Expected the schematic to setup a package install step.'
+    );
+  });
+
+  it('should add scripts to package.json', async () => {
+    const updatedTree = await runSchematic(tree, {
+      project: defaultProjectName,
+    });
+
+    const packageJson = JSON.parse(updatedTree.readContent('package.json'));
+
+    expect(packageJson.scripts['skyux:generate-documentation']).toEqual(
+      'ng generate @skyux-sdk/documentation-schematics:documentation'
+    );
+  });
+
+  it('should handle missing scripts section in package.json', async () => {
+    // Remove scripts section before schematic is executed.
+    let packageJson = JSON.parse(tree.readContent('package.json'));
+    delete packageJson.scripts;
+    tree.overwrite('package.json', JSON.stringify(packageJson));
+
+    const updatedTree = await runSchematic(tree, {
+      project: defaultProjectName,
+    });
+
+    packageJson = JSON.parse(updatedTree.readContent('package.json'));
+
+    expect(packageJson.scripts['skyux:generate-documentation']).toEqual(
+      'ng generate @skyux-sdk/documentation-schematics:documentation'
     );
   });
 });
