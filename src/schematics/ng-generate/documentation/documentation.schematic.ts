@@ -7,6 +7,7 @@ import {
   Tree,
 } from '@angular-devkit/schematics';
 
+import glob from 'glob';
 import { Application as TypeDocApplication, JSONOutput } from 'typedoc';
 import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
 
@@ -27,7 +28,7 @@ interface CodeExample {
 
 interface DocumentationJson {
   anchorIds?: AnchorIds;
-  typedoc?: JSONOutput.ProjectReflection;
+  typedoc?: Partial<JSONOutput.ProjectReflection>;
   codeExamples?: CodeExample[];
 }
 
@@ -50,7 +51,7 @@ function parseFriendlyUrlFragment(value: string): string {
 /**
  * Returns anchor IDs to be used for same-page linking.
  */
-function getAnchorIds(json: JSONOutput.ProjectReflection): AnchorIds {
+function getAnchorIds(json: Partial<JSONOutput.ProjectReflection>): AnchorIds {
   const anchorIdMap: AnchorIds = {};
 
   json.children
@@ -72,12 +73,37 @@ function applyTypeDocDefinitions(
   documentationJson: DocumentationJson,
   project: ProjectDefinition
 ): Rule {
-  return async () => {
-    const files: string[] = [normalize(`${project.sourceRoot}/public-api.ts`)];
+  return async (tree, context) => {
+    const publicApiPath = normalize(`${project.sourceRoot}/public-api.ts`);
+    const publicApiContents = readRequiredFile(tree, publicApiPath);
+
+    context.logger.info(`Primary entry point: ${publicApiPath}`);
+
+    const files: string[] = [publicApiPath];
+
+    // The following can be removed once we export our components/directives from the public_api.ts file.
+    glob
+      .sync(`${project.sourceRoot}/**/*.+(component|directive).ts`, {
+        nodir: true,
+        ignore: ['**/fixtures/**', '**/testing/**'],
+      })
+      .forEach((file) => {
+        if (
+          !publicApiContents.includes(
+            file.replace(project.sourceRoot || '', '').replace(/.ts$/, '')
+          )
+        ) {
+          context.logger.warn(
+            `Adding another entry point for "${file}" because it is not listed in the public-api.ts file. Should it be?`
+          );
+          files.push(normalize(file));
+        }
+      });
 
     const app = new TypeDocApplication();
 
     app.bootstrap({
+      exclude: ['**/node_modules/**', '**/fixtures/**', '**/*.spec.ts'],
       entryPoints: files,
       excludeExternals: true,
       excludeInternal: true,
@@ -104,10 +130,27 @@ function applyTypeDocDefinitions(
 
     if (typedocProject) {
       const json = app.serializer.toObject(typedocProject);
-      const anchorIds = getAnchorIds(json);
+
+      let processed: Partial<JSONOutput.ProjectReflection>;
+
+      if (files.length > 1) {
+        // const merged: { children: JSONOutput.DeclarationReflection[] } = {
+        //   children: [],
+        // };
+        processed = {
+          children: [],
+        };
+        json.children?.forEach((entrypoint) => {
+          processed.children!.push(...(entrypoint.children || []));
+        });
+      } else {
+        processed = json;
+      }
+
+      const anchorIds = getAnchorIds(processed);
 
       documentationJson.anchorIds = anchorIds;
-      documentationJson.typedoc = json;
+      documentationJson.typedoc = processed;
     } else {
       throw new SchematicsException(
         'TypeDoc project generation failed. ' +
