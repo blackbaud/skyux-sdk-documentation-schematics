@@ -81,7 +81,8 @@ function applyTypeDocDefinitions(
 
     const files: string[] = [publicApiPath];
 
-    // The following can be removed once we export our components/directives from the public_api.ts file.
+    // Add entry points for any components and directives that are not explicitly listed in public-api.ts.
+    // TODO: The following can be removed once we export our components/directives from the public-api.ts file.
     glob
       .sync(`${project.sourceRoot}/**/*.+(component|directive).ts`, {
         nodir: true,
@@ -90,12 +91,13 @@ function applyTypeDocDefinitions(
       .forEach((file) => {
         if (
           !publicApiContents.includes(
-            file.replace(project.sourceRoot || '', '').replace(/.ts$/, '')
+            file.replace(project.sourceRoot!, '').replace(/.ts$/, '')
           )
         ) {
           context.logger.warn(
             `Adding another entry point for "${file}" because it is not listed in the public-api.ts file. Should it be?`
           );
+
           files.push(normalize(file));
         }
       });
@@ -133,15 +135,16 @@ function applyTypeDocDefinitions(
 
       let processed: Partial<JSONOutput.ProjectReflection>;
 
+      // TypeDoc creates multiple sections if there are multiple entry points.
+      // The `@skyux/docs-tools` library expects the documentation.json definitions to be "flattened",
+      // so we need to combine the multiple sections into one.
+      // TODO: The following condition can be removed once we export our components/directives from the public-api.ts file.
       if (files.length > 1) {
-        // const merged: { children: JSONOutput.DeclarationReflection[] } = {
-        //   children: [],
-        // };
         processed = {
           children: [],
         };
-        json.children?.forEach((entrypoint) => {
-          processed.children!.push(...(entrypoint.children || []));
+        json.children!.forEach((entrypoint) => {
+          processed.children!.push(...entrypoint.children!);
         });
       } else {
         processed = json;
