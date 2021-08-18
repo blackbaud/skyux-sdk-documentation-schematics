@@ -144,7 +144,9 @@ function applyTypeDocDefinitions(
           children: [],
         };
         json.children!.forEach((entrypoint) => {
-          processed.children!.push(...entrypoint.children!);
+          if (entrypoint.children) {
+            processed.children!.push(...entrypoint.children);
+          }
         });
       } else {
         processed = json;

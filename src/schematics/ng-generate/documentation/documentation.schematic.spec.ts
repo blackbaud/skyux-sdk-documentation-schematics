@@ -271,6 +271,12 @@ describe('Setup protractor schematic', () => {
             },
           ],
         },
+        {
+          id: 0,
+          flags: {},
+          kind: 0,
+          name: 'NoChildren',
+        },
       ],
     };
 
