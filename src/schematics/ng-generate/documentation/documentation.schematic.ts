@@ -186,21 +186,43 @@ function ensureDocumentationJson(tree: Tree, documentationJsonPath: string) {
   }
 }
 
+/**
+ * Escapes a string value to be used in a `RegExp` constructor.
+ * @see https://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+ */
+function regexEscape(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function applyCodeExamples(
   documentationJson: DocumentationJson,
-  project: ProjectDefinition
+  project: ProjectDefinition,
+  projectName: string
 ): Rule {
   return (tree, context) => {
     const codeExamples: CodeExample[] = [];
+
+    const packageName = getPackageName(tree, projectName);
 
     tree
       .getDir(`${project.root}/documentation/code-examples`)
       .visit((filePath) => {
         context.logger.info(`Processing code example: ${filePath}`);
+
+        const rawContents = readRequiredFile(tree, filePath).replace(
+          new RegExp(
+            `('|")(${regexEscape(
+              `projects/${projectName}/src/public-api`
+            )})('|")`,
+            'gi'
+          ),
+          `'${packageName}'`
+        );
+
         codeExamples.push({
           fileName: basename(filePath),
           filePath,
-          rawContents: readRequiredFile(tree, filePath),
+          rawContents,
         });
       });
 
@@ -234,6 +256,13 @@ function updateDocumentationJson(
   };
 }
 
+function getPackageName(tree: Tree, projectName: string): string {
+  const packageJson = JSON.parse(
+    readRequiredFile(tree, `projects/${projectName}/package.json`)
+  );
+  return packageJson.name;
+}
+
 export default function generateDocumentation(options: Schema): Rule {
   return async (tree, context) => {
     const { workspace } = await getWorkspace(tree);
@@ -257,7 +286,7 @@ export default function generateDocumentation(options: Schema): Rule {
 
     return chain([
       applyTypeDocDefinitions(documentationJson, project),
-      applyCodeExamples(documentationJson, project),
+      applyCodeExamples(documentationJson, project, projectName),
       updateDocumentationJson(documentationJson, project),
     ]);
   };

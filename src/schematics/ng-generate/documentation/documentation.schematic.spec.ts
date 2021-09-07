@@ -183,12 +183,52 @@ describe('Setup protractor schematic', () => {
   it('should stringify code examples', async () => {
     tree.create(
       'projects/my-lib/documentation/code-examples/foobar/foobar.component.ts',
-      'CODE EXAMPLE CONTENT 1'
+      `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from 'projects/${defaultProjectName}/src/public-api';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`
     );
+
     tree.create(
       'projects/my-lib/documentation/code-examples/foobar/foobar.component.html',
-      'CODE EXAMPLE CONTENT 2'
+      `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from 'projects/${defaultProjectName}/src/public-api';
+
+import {
+  MyType
+} from 'projects/${defaultProjectName}/src/public-api';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`
     );
+
     tree.create(
       'projects/my-lib/documentation/code-examples/foobar/foobar.component.scss',
       'CODE EXAMPLE CONTENT 3'
@@ -205,13 +245,51 @@ describe('Setup protractor schematic', () => {
         fileName: 'foobar.component.ts',
         filePath:
           '/projects/my-lib/documentation/code-examples/foobar/foobar.component.ts',
-        rawContents: 'CODE EXAMPLE CONTENT 1',
+        rawContents: `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from '${defaultProjectName}';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`,
       },
       {
         fileName: 'foobar.component.html',
         filePath:
           '/projects/my-lib/documentation/code-examples/foobar/foobar.component.html',
-        rawContents: 'CODE EXAMPLE CONTENT 2',
+        rawContents: `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from '${defaultProjectName}';
+
+import {
+  MyType
+} from '${defaultProjectName}';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`,
       },
       {
         fileName: 'foobar.component.scss',
