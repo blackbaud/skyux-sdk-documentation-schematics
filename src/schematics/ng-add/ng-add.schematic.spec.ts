@@ -68,5 +68,43 @@ describe('ng-add.schematic', () => {
     expect(packageJson.scripts['skyux:generate-documentation']).toEqual(
       'ng generate @skyux-sdk/documentation-schematics:documentation'
     );
+
+    expect(packageJson.scripts.postbuild).toEqual(
+      'npm run skyux:generate-documentation'
+    );
+  });
+
+  it('should add documentation directory to ESLint ignore', async () => {
+    const eslintPath = `projects/${defaultProjectName}/.eslintrc.json`;
+
+    tree.create(eslintPath, `{"ignorePatterns": []}`);
+
+    const updatedTree = await runSchematic(tree, {
+      project: defaultProjectName,
+    });
+
+    const eslint = updatedTree.read(eslintPath)?.toString();
+    expect(eslint).toEqual(`{
+  "ignorePatterns": [
+    "documentation/**/*"
+  ]
+}`);
+  });
+
+  it('should use `defaultProject` if `project` undefined', async () => {
+    const eslintPath = `projects/${defaultProjectName}/.eslintrc.json`;
+
+    tree.create(eslintPath, `{"ignorePatterns": []}`);
+
+    const updatedTree = await runSchematic(tree, {
+      project: undefined, // <--
+    });
+
+    const eslint = updatedTree.read(eslintPath)?.toString();
+    expect(eslint).toEqual(`{
+  "ignorePatterns": [
+    "documentation/**/*"
+  ]
+}`);
   });
 });

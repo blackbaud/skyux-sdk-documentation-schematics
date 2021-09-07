@@ -1,3 +1,3 @@
-export interface SkyuxNgAddOptions {
+export interface Schema {
   project: string;
 }
