@@ -7,7 +7,6 @@ import {
   Tree,
 } from '@angular-devkit/schematics';
 
-import glob from 'glob';
 import { Application as TypeDocApplication, JSONOutput } from 'typedoc';
 import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
 
@@ -69,38 +68,48 @@ function getAnchorIds(json: Partial<JSONOutput.ProjectReflection>): AnchorIds {
   return anchorIdMap;
 }
 
+/**
+ * Remaps the component/directive exports that use the lambda 'λ' prefix to the component's class name.
+ * @example
+ * ```
+ * export { SkyAffixDirective as λ1 } from './modules/affix/affix.directive';
+ * ```
+ */
+function remapComponentExports(
+  json: Partial<JSONOutput.ProjectReflection>
+): Partial<JSONOutput.ProjectReflection> {
+  json.children
+    ?.filter((child) => {
+      return child.name.startsWith('λ');
+    })
+    .forEach((child) => {
+      let originalName = child.name;
+
+      child.children!.forEach((x) => {
+        if (x.name === 'constructor') {
+          // Using 'any' because TypeDoc has invalid typings.
+          const signature: any = x.signatures && x.signatures[0];
+          originalName = signature.type.name;
+          // Fix the constructor's name.
+          signature.name = originalName;
+        }
+      });
+
+      // Fix the class's name.
+      child.name = originalName;
+    });
+
+  return json;
+}
+
 function applyTypeDocDefinitions(
   documentationJson: DocumentationJson,
   project: ProjectDefinition
 ): Rule {
-  return async (tree, context) => {
+  return async () => {
     const publicApiPath = normalize(`${project.sourceRoot}/public-api.ts`);
-    const publicApiContents = readRequiredFile(tree, publicApiPath);
-
-    context.logger.info(`Primary entry point: ${publicApiPath}`);
 
     const files: string[] = [publicApiPath];
-
-    // Add entry points for any components and directives that are not explicitly listed in public-api.ts.
-    // TODO: The following can be removed once we export our components/directives from the public-api.ts file.
-    glob
-      .sync(`${project.sourceRoot}/**/*.+(component|directive).ts`, {
-        nodir: true,
-        ignore: ['**/fixtures/**', '**/testing/**'],
-      })
-      .forEach((file) => {
-        if (
-          !publicApiContents.includes(
-            file.replace(project.sourceRoot!, '').replace(/.ts$/, '')
-          )
-        ) {
-          context.logger.warn(
-            `Adding another entry point for "${file}" because it is not listed in the public-api.ts file. Should it be?`
-          );
-
-          files.push(normalize(file));
-        }
-      });
 
     const app = new TypeDocApplication();
 
@@ -131,31 +140,13 @@ function applyTypeDocDefinitions(
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const json = app.serializer.toObject(typedocProject);
+      const projectReflection = app.serializer.toObject(typedocProject);
+      const json = remapComponentExports(projectReflection);
 
-      let processed: Partial<JSONOutput.ProjectReflection>;
-
-      // TypeDoc creates multiple sections if there are multiple entry points.
-      // The `@skyux/docs-tools` library expects the documentation.json definitions to be "flattened",
-      // so we need to combine the multiple sections into one.
-      // TODO: The following condition can be removed once we export our components/directives from the public-api.ts file.
-      if (files.length > 1) {
-        processed = {
-          children: [],
-        };
-        json.children!.forEach((entrypoint) => {
-          if (entrypoint.children) {
-            processed.children!.push(...entrypoint.children);
-          }
-        });
-      } else {
-        processed = json;
-      }
-
-      const anchorIds = getAnchorIds(processed);
+      const anchorIds = getAnchorIds(json);
 
       documentationJson.anchorIds = anchorIds;
-      documentationJson.typedoc = processed;
+      documentationJson.typedoc = json;
     } else {
       throw new SchematicsException(
         'TypeDoc project generation failed. ' +

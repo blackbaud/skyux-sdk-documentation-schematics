@@ -20,8 +20,6 @@ describe('Setup protractor schematic', () => {
 
   let tree: UnitTestTree;
 
-  let globSpy: jasmine.Spy;
-  let mockGlobResults: string[];
   let mockTypeDocProject: Partial<ProjectReflection> | undefined;
   let mockTypeDocProjectJson: Partial<JSONOutput.ProjectReflection>;
   let typedocBootstrapSpy: jasmine.Spy;
@@ -33,16 +31,6 @@ describe('Setup protractor schematic', () => {
 
     mockTypeDocProject = {};
     mockTypeDocProjectJson = {};
-
-    mockGlobResults = [];
-    globSpy = jasmine.createSpy('glob.sync');
-    globSpy.and.callFake(() => {
-      return mockGlobResults;
-    });
-
-    mock('glob', {
-      sync: globSpy,
-    });
 
     typedocBootstrapSpy = jasmine.createSpy('TypeDoc.Application.boostrap');
 
@@ -300,97 +288,145 @@ export class MyDemoComponent {}
     ]);
   });
 
-  it('should add components that are not listed in public-api.ts', async () => {
-    await runSchematic();
-
-    expect(typedocBootstrapSpy.calls.mostRecent().args[0].entryPoints).toEqual([
-      'projects/my-lib/src/public-api.ts',
-    ]);
-
-    typedocBootstrapSpy.calls.reset();
-
-    // Create a component but don't export it in public-api.ts.
-    tree.create('projects/my-lib/src/lib/missing.component.ts', '');
-
-    mockGlobResults = [
-      'projects/my-lib/src/lib/my-lib.component.ts',
-      'projects/my-lib/src/lib/missing.component.ts',
-    ];
-
+  it('should remap component/directive export aliases', async () => {
     mockTypeDocProjectJson = {
       children: [
         {
-          id: 0,
+          id: 100,
+          name: 'λ2',
+          kind: 128,
+          kindString: 'Class',
           flags: {},
-          kind: 0,
-          name: 'projects/my-lib/src/public-api.ts',
-          children: [
+          comment: {
+            shortText: 'COMMENT',
+          },
+          decorators: [
             {
-              id: 1,
-              flags: {},
-              kind: 0,
-              kindString: 'Class',
-              name: 'FooService',
+              name: 'Directive',
+              type: {
+                type: 'reference',
+                name: 'Directive',
+              },
+              arguments: {
+                obj: "{\n  selector: '[skyId]',\n  exportAs: 'skyId'\n}",
+              },
             },
           ],
-        },
-        {
-          id: 0,
-          flags: {},
-          kind: 0,
-          name: 'projects/my-lib/src/missing.component.ts',
           children: [
             {
-              id: 0,
+              id: 101,
+              name: 'constructor',
+              kind: 512,
+              kindString: 'Constructor',
               flags: {},
-              kind: 0,
-              kindString: 'Class',
-              name: 'MissingComponent',
+              sources: [
+                {
+                  fileName: 'projects/core/src/modules/id/id.directive.ts',
+                  line: 32,
+                  character: 2,
+                },
+              ],
+              signatures: [
+                {
+                  id: 102,
+                  name: 'new λ2',
+                  kind: 16384,
+                  kindString: 'Constructor signature',
+                  flags: {},
+                  parameters: [],
+                  type: {
+                    type: 'reference',
+                    id: 100,
+                    name: 'SkyIdDirective',
+                  },
+                },
+              ],
+            },
+            {
+              id: 105,
+              name: 'id',
+              kind: 262144,
+              kindString: 'Accessor',
+              flags: {},
             },
           ],
-        },
-        {
-          id: 0,
-          flags: {},
-          kind: 0,
-          name: 'NoChildren',
         },
       ],
     };
 
     const updatedTree = await runSchematic();
 
-    expect(typedocBootstrapSpy.calls.mostRecent().args[0].entryPoints).toEqual([
-      'projects/my-lib/src/public-api.ts',
-      'projects/my-lib/src/lib/missing.component.ts', // <-- second entry point
-    ]);
-
-    expect(updatedTree.readContent('dist/my-lib/documentation.json')).toEqual(
-      `{
-  "anchorIds": {
-    "FooService": "class-fooservice",
-    "MissingComponent": "class-missingcomponent"
-  },
-  "typedoc": {
-    "children": [
-      {
-        "id": 1,
-        "flags": {},
-        "kind": 0,
-        "kindString": "Class",
-        "name": "FooService"
+    expect(
+      JSON.parse(updatedTree.readContent('dist/my-lib/documentation.json'))
+    ).toEqual({
+      anchorIds: {
+        SkyIdDirective: 'class-skyiddirective',
       },
-      {
-        "id": 0,
-        "flags": {},
-        "kind": 0,
-        "kindString": "Class",
-        "name": "MissingComponent"
-      }
-    ]
-  },
-  "codeExamples": []
-}`
-    );
+      typedoc: {
+        children: [
+          {
+            id: 100,
+            name: 'SkyIdDirective',
+            kind: 128,
+            kindString: 'Class',
+            flags: {},
+            comment: {
+              shortText: 'COMMENT',
+            },
+            decorators: [
+              {
+                name: 'Directive',
+                type: {
+                  type: 'reference',
+                  name: 'Directive',
+                },
+                arguments: {
+                  obj: "{\n  selector: '[skyId]',\n  exportAs: 'skyId'\n}",
+                },
+              },
+            ],
+            children: [
+              {
+                id: 101,
+                name: 'constructor',
+                kind: 512,
+                kindString: 'Constructor',
+                flags: {},
+                sources: [
+                  {
+                    fileName: 'projects/core/src/modules/id/id.directive.ts',
+                    line: 32,
+                    character: 2,
+                  },
+                ],
+                signatures: [
+                  {
+                    id: 102,
+                    name: 'SkyIdDirective',
+                    kind: 16384,
+                    kindString: 'Constructor signature',
+                    flags: {},
+                    parameters: [],
+                    type: {
+                      type: 'reference',
+                      id: 100,
+                      name: 'SkyIdDirective',
+                    },
+                  },
+                ],
+              },
+              {
+                id: 105,
+                name: 'id',
+                kind: 262144,
+                kindString: 'Accessor',
+                flags: {},
+              },
+            ],
+          },
+        ],
+      },
+      codeExamples: [],
+    });
   });
 });
