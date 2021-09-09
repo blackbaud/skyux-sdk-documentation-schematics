@@ -20,8 +20,6 @@ describe('Setup protractor schematic', () => {
 
   let tree: UnitTestTree;
 
-  let globSpy: jasmine.Spy;
-  let mockGlobResults: string[];
   let mockTypeDocProject: Partial<ProjectReflection> | undefined;
   let mockTypeDocProjectJson: Partial<JSONOutput.ProjectReflection>;
   let typedocBootstrapSpy: jasmine.Spy;
@@ -33,16 +31,6 @@ describe('Setup protractor schematic', () => {
 
     mockTypeDocProject = {};
     mockTypeDocProjectJson = {};
-
-    mockGlobResults = [];
-    globSpy = jasmine.createSpy('glob.sync');
-    globSpy.and.callFake(() => {
-      return mockGlobResults;
-    });
-
-    mock('glob', {
-      sync: globSpy,
-    });
 
     typedocBootstrapSpy = jasmine.createSpy('TypeDoc.Application.boostrap');
 
@@ -298,99 +286,5 @@ export class MyDemoComponent {}
         rawContents: 'CODE EXAMPLE CONTENT 3',
       },
     ]);
-  });
-
-  it('should add components that are not listed in public-api.ts', async () => {
-    await runSchematic();
-
-    expect(typedocBootstrapSpy.calls.mostRecent().args[0].entryPoints).toEqual([
-      'projects/my-lib/src/public-api.ts',
-    ]);
-
-    typedocBootstrapSpy.calls.reset();
-
-    // Create a component but don't export it in public-api.ts.
-    tree.create('projects/my-lib/src/lib/missing.component.ts', '');
-
-    mockGlobResults = [
-      'projects/my-lib/src/lib/my-lib.component.ts',
-      'projects/my-lib/src/lib/missing.component.ts',
-    ];
-
-    mockTypeDocProjectJson = {
-      children: [
-        {
-          id: 0,
-          flags: {},
-          kind: 0,
-          name: 'projects/my-lib/src/public-api.ts',
-          children: [
-            {
-              id: 1,
-              flags: {},
-              kind: 0,
-              kindString: 'Class',
-              name: 'FooService',
-            },
-          ],
-        },
-        {
-          id: 0,
-          flags: {},
-          kind: 0,
-          name: 'projects/my-lib/src/missing.component.ts',
-          children: [
-            {
-              id: 0,
-              flags: {},
-              kind: 0,
-              kindString: 'Class',
-              name: 'MissingComponent',
-            },
-          ],
-        },
-        {
-          id: 0,
-          flags: {},
-          kind: 0,
-          name: 'NoChildren',
-        },
-      ],
-    };
-
-    const updatedTree = await runSchematic();
-
-    expect(typedocBootstrapSpy.calls.mostRecent().args[0].entryPoints).toEqual([
-      'projects/my-lib/src/public-api.ts',
-      'projects/my-lib/src/lib/missing.component.ts', // <-- second entry point
-    ]);
-
-    expect(updatedTree.readContent('dist/my-lib/documentation.json')).toEqual(
-      `{
-  "anchorIds": {
-    "FooService": "class-fooservice",
-    "MissingComponent": "class-missingcomponent"
-  },
-  "typedoc": {
-    "children": [
-      {
-        "id": 1,
-        "flags": {},
-        "kind": 0,
-        "kindString": "Class",
-        "name": "FooService"
-      },
-      {
-        "id": 0,
-        "flags": {},
-        "kind": 0,
-        "kindString": "Class",
-        "name": "MissingComponent"
-      }
-    ]
-  },
-  "codeExamples": []
-}`
-    );
   });
 });
