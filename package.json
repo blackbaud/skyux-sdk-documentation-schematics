@@ -1,6 +1,6 @@
 {
   "name": "@skyux-sdk/documentation-schematics",
-  "version": "5.0.0-beta.3",
+  "version": "5.0.0-beta.4",
   "description": "Documentation schematics for Angular CLI library projects",
   "scripts": {
     "build": "npm run clean && npm run lint && tsc -p tsconfig.build.json",
