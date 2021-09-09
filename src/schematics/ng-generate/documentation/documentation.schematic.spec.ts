@@ -287,4 +287,146 @@ export class MyDemoComponent {}
       },
     ]);
   });
+
+  it('should remap component/directive export aliases', async () => {
+    mockTypeDocProjectJson = {
+      children: [
+        {
+          id: 100,
+          name: 'λ2',
+          kind: 128,
+          kindString: 'Class',
+          flags: {},
+          comment: {
+            shortText: 'COMMENT',
+          },
+          decorators: [
+            {
+              name: 'Directive',
+              type: {
+                type: 'reference',
+                name: 'Directive',
+              },
+              arguments: {
+                obj: "{\n  selector: '[skyId]',\n  exportAs: 'skyId'\n}",
+              },
+            },
+          ],
+          children: [
+            {
+              id: 101,
+              name: 'constructor',
+              kind: 512,
+              kindString: 'Constructor',
+              flags: {},
+              sources: [
+                {
+                  fileName: 'projects/core/src/modules/id/id.directive.ts',
+                  line: 32,
+                  character: 2,
+                },
+              ],
+              signatures: [
+                {
+                  id: 102,
+                  name: 'new λ2',
+                  kind: 16384,
+                  kindString: 'Constructor signature',
+                  flags: {},
+                  parameters: [],
+                  type: {
+                    type: 'reference',
+                    id: 100,
+                    name: 'SkyIdDirective',
+                  },
+                },
+              ],
+            },
+            {
+              id: 105,
+              name: 'id',
+              kind: 262144,
+              kindString: 'Accessor',
+              flags: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    const updatedTree = await runSchematic();
+
+    expect(
+      JSON.parse(updatedTree.readContent('dist/my-lib/documentation.json'))
+    ).toEqual({
+      anchorIds: {
+        SkyIdDirective: 'class-skyiddirective',
+      },
+      typedoc: {
+        children: [
+          {
+            id: 100,
+            name: 'SkyIdDirective',
+            kind: 128,
+            kindString: 'Class',
+            flags: {},
+            comment: {
+              shortText: 'COMMENT',
+            },
+            decorators: [
+              {
+                name: 'Directive',
+                type: {
+                  type: 'reference',
+                  name: 'Directive',
+                },
+                arguments: {
+                  obj: "{\n  selector: '[skyId]',\n  exportAs: 'skyId'\n}",
+                },
+              },
+            ],
+            children: [
+              {
+                id: 101,
+                name: 'constructor',
+                kind: 512,
+                kindString: 'Constructor',
+                flags: {},
+                sources: [
+                  {
+                    fileName: 'projects/core/src/modules/id/id.directive.ts',
+                    line: 32,
+                    character: 2,
+                  },
+                ],
+                signatures: [
+                  {
+                    id: 102,
+                    name: 'SkyIdDirective',
+                    kind: 16384,
+                    kindString: 'Constructor signature',
+                    flags: {},
+                    parameters: [],
+                    type: {
+                      type: 'reference',
+                      id: 100,
+                      name: 'SkyIdDirective',
+                    },
+                  },
+                ],
+              },
+              {
+                id: 105,
+                name: 'id',
+                kind: 262144,
+                kindString: 'Accessor',
+                flags: {},
+              },
+            ],
+          },
+        ],
+      },
+      codeExamples: [],
+    });
+  });
 });

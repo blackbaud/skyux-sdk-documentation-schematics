@@ -68,6 +68,40 @@ function getAnchorIds(json: Partial<JSONOutput.ProjectReflection>): AnchorIds {
   return anchorIdMap;
 }
 
+/**
+ * Remaps the component/directive exports that use the lambda 'λ' prefix to the component's class name.
+ * @example
+ * ```
+ * export { SkyAffixDirective as λ1 } from './modules/affix/affix.directive';
+ * ```
+ */
+function remapComponentExports(
+  json: Partial<JSONOutput.ProjectReflection>
+): Partial<JSONOutput.ProjectReflection> {
+  json.children
+    ?.filter((child) => {
+      return child.name.startsWith('λ');
+    })
+    .forEach((child) => {
+      let originalName = child.name;
+
+      child.children!.forEach((x) => {
+        if (x.name === 'constructor') {
+          // Using 'any' because TypeDoc has invalid typings.
+          const signature: any = x.signatures && x.signatures[0];
+          originalName = signature.type.name;
+          // Fix the constructor's name.
+          signature.name = originalName;
+        }
+      });
+
+      // Fix the class's name.
+      child.name = originalName;
+    });
+
+  return json;
+}
+
 function applyTypeDocDefinitions(
   documentationJson: DocumentationJson,
   project: ProjectDefinition
@@ -106,7 +140,8 @@ function applyTypeDocDefinitions(
     const typedocProject = app.convert();
 
     if (typedocProject) {
-      const json = app.serializer.toObject(typedocProject);
+      const projectReflection = app.serializer.toObject(typedocProject);
+      const json = remapComponentExports(projectReflection);
 
       const anchorIds = getAnchorIds(json);
 
