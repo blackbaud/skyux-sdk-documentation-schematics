@@ -1,3 +1,7 @@
+# 5.0.0 (2021-09-30)
+
+- Initial `5.0.0` major release.
+
 # 5.0.0-beta.4 (2021-09-09)
 
 - Fixed the `generate` schematic to generate documentation for libraries that are built using Angular's "partial" Ivy mode. [#7](https://github.com/blackbaud/skyux-sdk-documentation-schematics/pull/7)
