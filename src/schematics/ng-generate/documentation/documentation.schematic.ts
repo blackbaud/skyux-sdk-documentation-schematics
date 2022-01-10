@@ -31,6 +31,13 @@ interface DocumentationJson {
   codeExamples?: CodeExample[];
 }
 
+function readNgPackagrConfig(
+  tree: Tree,
+  project: ProjectDefinition
+): { [_: string]: any } {
+  return JSON.parse(readRequiredFile(tree, `${project.root}/ng-package.json`));
+}
+
 function parseFriendlyUrlFragment(value: string): string {
   const friendly = value
     .toLowerCase()
@@ -104,11 +111,9 @@ function remapComponentExports(
 
 function applyTypeDocDefinitions(
   documentationJson: DocumentationJson,
-  project: ProjectDefinition
+  publicApiPath: string
 ): Rule {
   return async () => {
-    const publicApiPath = normalize(`${project.sourceRoot}/public-api.ts`);
-
     const files: string[] = [publicApiPath];
 
     const app = new TypeDocApplication();
@@ -161,10 +166,7 @@ function getDocumentationJsonPath(
   tree: Tree,
   project: ProjectDefinition
 ): string {
-  const ngPackageJson = JSON.parse(
-    readRequiredFile(tree, `${project.root}/ng-package.json`)
-  );
-
+  const ngPackageJson = readNgPackagrConfig(tree, project);
   const outputPath = resolve(`${project.root}` as Path, ngPackageJson.dest);
 
   return `${outputPath}/documentation.json`;
@@ -188,12 +190,14 @@ function regexEscape(value: string): string {
 function applyCodeExamples(
   documentationJson: DocumentationJson,
   project: ProjectDefinition,
-  projectName: string
+  projectName: string,
+  publicApiPath: string
 ): Rule {
   return (tree, context) => {
     const codeExamples: CodeExample[] = [];
 
     const packageName = getPackageName(tree, projectName);
+    const publicApiPathNoExtension = publicApiPath.replace(/\.ts$/, '');
 
     tree
       .getDir(`${project.root}/documentation/code-examples`)
@@ -202,8 +206,8 @@ function applyCodeExamples(
 
         const rawContents = readRequiredFile(tree, filePath).replace(
           new RegExp(
-            `('|")(${regexEscape(
-              `projects/${projectName}/src/public-api`
+            `('|")(${regexEscape(publicApiPathNoExtension)}|${regexEscape(
+              publicApiPathNoExtension.replace(/\/index$/, '')
             )})('|")`,
             'gi'
           ),
@@ -275,9 +279,14 @@ export default function generateDocumentation(options: Schema): Rule {
 
     const documentationJson = getDocumentationJson(tree, project);
 
+    const ngPackageJson = readNgPackagrConfig(tree, project);
+    const publicApiPath = normalize(
+      `${project.root}/${ngPackageJson.lib.entryFile}`
+    );
+
     return chain([
-      applyTypeDocDefinitions(documentationJson, project),
-      applyCodeExamples(documentationJson, project, projectName),
+      applyTypeDocDefinitions(documentationJson, publicApiPath),
+      applyCodeExamples(documentationJson, project, projectName, publicApiPath),
       updateDocumentationJson(documentationJson, project),
     ]);
   };

@@ -429,4 +429,77 @@ export class MyDemoComponent {}
       codeExamples: [],
     });
   });
+
+  it('should recognize entry files not named "public-api.ts"', async () => {
+    tree.create(
+      'projects/my-lib/documentation/code-examples/foobar/foobar.component.ts',
+      `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from 'projects/${defaultProjectName}/src';
+
+import {
+  MyComponent
+} from 'projects/${defaultProjectName}/src/index';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`
+    );
+
+    const ngPackagrConfig = JSON.parse(
+      tree.readContent('projects/my-lib/ng-package.json')
+    );
+    ngPackagrConfig.lib.entryFile = 'src/index.ts';
+    tree.overwrite(
+      'projects/my-lib/ng-package.json',
+      JSON.stringify(ngPackagrConfig)
+    );
+
+    const updatedTree = await runSchematic();
+
+    const documentationJson = JSON.parse(
+      updatedTree.readContent('dist/my-lib/documentation.json')
+    );
+
+    expect(documentationJson.codeExamples).toEqual([
+      {
+        fileName: 'foobar.component.ts',
+        filePath:
+          '/projects/my-lib/documentation/code-examples/foobar/foobar.component.ts',
+        rawContents: `import {
+  Component
+} from '@angular/core';
+
+import {
+  MyService
+} from '${defaultProjectName}';
+
+import {
+  MyComponent
+} from '${defaultProjectName}';
+
+import {
+  Subscription
+} from 'rxjs';
+
+@Component({
+  selector: 'app-my-demo',
+  templateUrl: './my-demo.component.html'
+})
+export class MyDemoComponent {}
+`,
+      },
+    ]);
+  });
 });
